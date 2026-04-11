@@ -1,24 +1,14 @@
-
 const { getL2, setL2 } = require('./l2-redis')
-const { setL3Meta, recordHit, recordMiss } = require('./l3-mongo')
-const { setL1, getL1 } = require('./l1-memory')
 
+// Check if data exists in Redis cache
 const isCacheValid = async (key) => {
   try {
-    const l1Data = getL1(key)
-    if (l1Data) {
-      recordHit(key)
-      return { valid: true, data: l1Data, source: 'L1-Memory' }
+    const data = await getL2(key)
+
+    if (data) {
+      return { valid: true, data: data, source: 'Redis' }
     }
 
-    const l2Data = await getL2(key)
-    if (l2Data) {
-      setL1(key, l2Data)
-      recordHit(key)
-      return { valid: true, data: l2Data, source: 'L2-Redis' }
-    }
-
-    recordMiss(key)
     return { valid: false, data: null, source: null }
 
   } catch (error) {
@@ -27,19 +17,19 @@ const isCacheValid = async (key) => {
   }
 }
 
-const populateCache = async (key, data, dataType = 'general') => {
+// Store data in Redis cache
+const populateCache = async (key, data) => {
   try {
-    setL1(key, data)
     await setL2(key, data)
-    await setL3Meta(key, dataType)
-    console.log(`Cache POPULATED for key: ${key}`)
+    console.log(`Cache POPULATED in Redis for key: ${key}`)
   } catch (error) {
     console.log('Cache population failed:', error.message)
   }
 }
 
+// Background check - runs every 30 seconds
 const startValidityEngine = () => {
-  setInterval(async () => {
+  setInterval(() => {
     console.log('Validity engine running background check...')
   }, 30000)
 }
