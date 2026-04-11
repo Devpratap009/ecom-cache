@@ -1,17 +1,15 @@
 const mongoose = require('mongoose')
 
-// This stores information ABOUT our cache
-// Not the actual cached data — just metadata
 const cacheMetaSchema = new mongoose.Schema(
   {
     cacheKey: {
       type: String,
       required: true,
-      unique: true    // Each cache key is unique
+      unique: true
     },
     ttl: {
       type: Number,
-      default: 3600   // Time to live in seconds (1 hour default)
+      default: 3600
     },
     lastAccessed: {
       type: Date,
@@ -23,22 +21,22 @@ const cacheMetaSchema = new mongoose.Schema(
     },
     hitCount: {
       type: Number,
-      default: 0      // How many times this cache was used
+      default: 0      
     },
     missCount: {
       type: Number,
-      default: 0      // How many times cache was missed
+      default: 0      
     },
     isActive: {
       type: Boolean,
-      default: true   // Is this cache entry active or invalidated
+      default: true   
     },
     invalidationRules: {
-      type: [String], // List of rules like ['on-update', 'on-delete']
+      type: [String], 
       default: ['on-update']
     },
     dataType: {
-      type: String,   // 'all-products' or 'single-product'
+      type: String,   
       default: 'general'
     }
   },

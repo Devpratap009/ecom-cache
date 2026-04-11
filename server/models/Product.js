@@ -1,15 +1,14 @@
 const mongoose = require('mongoose')
 
-// This defines what a Product looks like in MongoDB
 const productSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: true  // Product must have a name
+      required: true  
     },
     price: {
       type: Number,
-      required: true  // Product must have a price
+      required: true  
     },
     description: {
       type: String,
@@ -29,7 +28,7 @@ const productSchema = new mongoose.Schema(
     }
   },
   {
-    timestamps: true  // Automatically adds createdAt and updatedAt
+    timestamps: true
   }
 )
 

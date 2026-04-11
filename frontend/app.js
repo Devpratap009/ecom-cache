@@ -2,26 +2,23 @@ const isProductPage = window.location.pathname === '/product.html'
 const banner = document.getElementById('cacheBanner')
 const clearBtn = document.getElementById('clearBtn')
 
-// ── CLEAR CACHE BUTTON ─────────────────────────────────
+
 clearBtn.addEventListener('click', async () => {
   clearBtn.disabled = true
   clearBtn.textContent = 'Clearing...'
 
   try {
     if (isProductPage) {
-      // Clear cache for this specific product
       const params = new URLSearchParams(window.location.search)
       const productId = params.get('id')
       await fetch(`/api/products/${productId}/cache`, { method: 'DELETE' })
     } else {
-      // Clear cache for all products
       await fetch('/api/products/cache/all', { method: 'DELETE' })
     }
 
     banner.textContent = '🗑️ Cache Cleared — Reloading...'
     banner.className = 'cache-banner miss'
 
-    // Reload page after short delay so user sees the message
     setTimeout(() => {
       window.location.reload()
     }, 800)
@@ -33,7 +30,6 @@ clearBtn.addEventListener('click', async () => {
   }
 })
 
-// ── HOME PAGE ──────────────────────────────────────────
 if (!isProductPage) {
   const grid = document.getElementById('productGrid')
 
@@ -73,7 +69,6 @@ if (!isProductPage) {
     })
 }
 
-// ── PRODUCT PAGE ───────────────────────────────────────
 if (isProductPage) {
   const detail = document.getElementById('productDetail')
   const params = new URLSearchParams(window.location.search)
@@ -121,7 +116,6 @@ if (isProductPage) {
   }
 }
 
-// ── Navigate to product page ───────────────────────────
 function goToProduct(id) {
   window.location.href = `/product.html?id=${id}`
 }

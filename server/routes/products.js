@@ -4,16 +4,12 @@ const Product = require('../models/Product')
 const cacheMiddleware = require('../middleware/cacheMiddleware')
 const { broadcastInvalidation } = require('../cache/coherency')
 
-// GET /api/products - Get all products
-// Request goes through cacheMiddleware first
 router.get('/', cacheMiddleware, async (req, res) => {
   try {
     console.log('Fetching ALL products from MongoDB...')
 
-    // Fetch from database
     const products = await Product.find({})
 
-    // Save to cache for next time
     const { cacheKey, populateCache } = res.locals
     if (cacheKey && populateCache) {
       await populateCache(cacheKey, products, 'all-products')
@@ -34,7 +30,6 @@ router.get('/', cacheMiddleware, async (req, res) => {
   }
 })
 
-// GET /api/products/:id - Get one product
 router.get('/:id', cacheMiddleware, async (req, res) => {
   try {
     console.log(`Fetching product ${req.params.id} from MongoDB...`)
@@ -48,7 +43,6 @@ router.get('/:id', cacheMiddleware, async (req, res) => {
       })
     }
 
-    // Save to cache for next time
     const { cacheKey, populateCache } = res.locals
     if (cacheKey && populateCache) {
       await populateCache(cacheKey, product, 'single-product')
@@ -69,12 +63,10 @@ router.get('/:id', cacheMiddleware, async (req, res) => {
   }
 })
 
-// DELETE /api/products/:id/cache - Manually clear cache for a product
 router.delete('/:id/cache', async (req, res) => {
   try {
     const cacheKey = `products:${req.params.id}`
 
-    // Broadcast invalidation to all cache layers
     await broadcastInvalidation(cacheKey)
     await broadcastInvalidation('products:all')
 
@@ -91,7 +83,6 @@ router.delete('/:id/cache', async (req, res) => {
   }
 })
 
-// DELETE /api/products/cache/all - Clear cache for all products
 router.delete('/cache/all', async (req, res) => {
   try {
     await broadcastInvalidation('products:all')
@@ -109,7 +100,6 @@ router.delete('/cache/all', async (req, res) => {
   }
 })
 
-// GET /api/cache/status - See cache stats
 router.get('/cache/status', async (req, res) => {
   try {
     const CacheMeta = require('../models/CacheMeta')

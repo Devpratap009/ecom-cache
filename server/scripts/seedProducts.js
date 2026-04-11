@@ -2,7 +2,6 @@ require('dotenv').config({ path: '../../.env' })
 const mongoose = require('mongoose')
 const Product = require('../models/Product')
 
-// Our 4 sample products
 const products = [
   {
     name: 'Wireless Headphones',
@@ -38,32 +37,27 @@ const products = [
   }
 ]
 
-// Connect to MongoDB and insert products
 const seedDatabase = async () => {
   try {
-    // Connect to MongoDB
     await mongoose.connect('mongodb://localhost:27017/ecomcache')
     console.log('MongoDB connected')
 
-    // Clear any existing products first
     await Product.deleteMany({})
     console.log('Old products cleared')
 
-    // Insert our 4 products
     const inserted = await Product.insertMany(products)
     console.log(`${inserted.length} products added successfully`)
 
-    // Show what was inserted
     inserted.forEach(p => {
       console.log(`  - ${p.name} | Rs.${p.price} | ID: ${p._id}`)
     })
 
     console.log('Database seeding complete!')
-    process.exit(0) // Exit successfully
+    process.exit(0)
 
   } catch (error) {
     console.log('Seeding failed:', error.message)
-    process.exit(1) // Exit with error
+    process.exit(1)
   }
 }
 

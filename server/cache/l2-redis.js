@@ -1,16 +1,10 @@
-// L2 Cache - Stored in Redis
-// Faster than MongoDB, survives server restarts
-// Shared across multiple Node.js processes
 
 const { redisClient } = require('../redis')
 
-// How long L2 cache lives - 1 hour
-const L2_TTL = 60 * 60 // 1 hour in seconds
+const L2_TTL = 60 * 60
 
-// Save something to Redis cache
 const setL2 = async (key, value) => {
   try {
-    // Store as JSON string with expiry time
     await redisClient.setEx(
       key,
       L2_TTL,
@@ -22,7 +16,6 @@ const setL2 = async (key, value) => {
   }
 }
 
-// Get something from Redis cache
 const getL2 = async (key) => {
   try {
     const data = await redisClient.get(key)
@@ -33,7 +26,7 @@ const getL2 = async (key) => {
     }
 
     console.log(`L2 Redis HIT: ${key}`)
-    return JSON.parse(data) // Convert back from JSON string
+    return JSON.parse(data)
 
   } catch (error) {
     console.log(`L2 Redis GET failed: ${error.message}`)
@@ -41,7 +34,6 @@ const getL2 = async (key) => {
   }
 }
 
-// Delete something from Redis cache
 const deleteL2 = async (key) => {
   try {
     await redisClient.del(key)
@@ -51,7 +43,6 @@ const deleteL2 = async (key) => {
   }
 }
 
-// Check how long a key has left before expiring
 const getTTL = async (key) => {
   try {
     const ttl = await redisClient.ttl(key)

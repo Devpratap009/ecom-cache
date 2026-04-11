@@ -1,25 +1,17 @@
-#!/bin/bash
 
-# ─────────────────────────────────────────────
-# QuickMart Cache Warming Script
-# Runs during off-peak hours (2 AM via cron)
-# Pre-loads all product data into cache
-# ─────────────────────────────────────────────
-
-# Server URL
 BASE_URL="http://localhost:5000"
 
-# Log file location
+
 LOG_FILE="./scripts/warm-cache.log"
 
-# Current timestamp
+
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 
 echo "─────────────────────────────────────────────" | tee -a $LOG_FILE
 echo "Cache Warming Started: $TIMESTAMP" | tee -a $LOG_FILE
 echo "─────────────────────────────────────────────" | tee -a $LOG_FILE
 
-# ── Step 1: Check if server is running ────────
+
 echo "Checking server health..." | tee -a $LOG_FILE
 
 HEALTH=$(curl -s "$BASE_URL/api/health")
@@ -31,16 +23,16 @@ fi
 
 echo "Server is running ✓" | tee -a $LOG_FILE
 
-# ── Step 2: Clear existing cache ──────────────
+
 echo "Clearing old cache..." | tee -a $LOG_FILE
 
 CLEAR=$(curl -s -X DELETE "$BASE_URL/api/products/cache/all")
 echo "Cache cleared: $CLEAR" | tee -a $LOG_FILE
 
-# Small delay after clearing
+
 sleep 1
 
-# ── Step 3: Warm the all-products cache ───────
+
 echo "Warming all products cache..." | tee -a $LOG_FILE
 
 RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}\nTIME:%{time_total}s" "$BASE_URL/api/products")
@@ -54,17 +46,16 @@ else
   echo "WARNING: All products returned status $HTTP_STATUS" | tee -a $LOG_FILE
 fi
 
-# Small delay between requests
+
 sleep 1
 
-# ── Step 4: Warm individual product caches ────
+
 echo "Warming individual product caches..." | tee -a $LOG_FILE
 
-# Get all product IDs from the API
+
 PRODUCTS_JSON=$(curl -s "$BASE_URL/api/products")
 
-# Extract IDs using basic string processing
-# This pulls out all _id values from the JSON
+
 IDS=$(echo $PRODUCTS_JSON | grep -o '"_id":"[^"]*"' | cut -d'"' -f4)
 
 if [ -z "$IDS" ]; then
@@ -82,12 +73,10 @@ else
       echo "WARNING: Product $ID returned status $PROD_STATUS" | tee -a $LOG_FILE
     fi
 
-    # Small delay between each product request
     sleep 0.5
   done
 fi
 
-# ── Step 5: Verify cache is now warm ──────────
 echo "Verifying cache is warm..." | tee -a $LOG_FILE
 
 VERIFY=$(curl -s "$BASE_URL/api/products")
@@ -99,7 +88,6 @@ else
   echo "Cache verification: data served fresh from DB" | tee -a $LOG_FILE
 fi
 
-# ── Done ───────────────────────────────────────
 END_TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 echo "─────────────────────────────────────────────" | tee -a $LOG_FILE
 echo "Cache Warming Finished: $END_TIMESTAMP" | tee -a $LOG_FILE

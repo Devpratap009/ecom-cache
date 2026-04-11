@@ -10,7 +10,7 @@ body {
   color: #333;
 }
 
-/* Header */
+
 header {
   background: #222;
   color: white;
@@ -29,7 +29,7 @@ header nav {
   color: #ccc;
 }
 
-/* Main */
+
 main {
   max-width: 1100px;
   margin: 30px auto;
@@ -42,7 +42,7 @@ main h2 {
   color: #222;
 }
 
-/* Cache Bar */
+
 .cache-bar {
   display: flex;
   align-items: center;
@@ -50,7 +50,7 @@ main h2 {
   margin-bottom: 20px;
 }
 
-/* Cache Banner */
+
 .cache-banner {
   flex: 1;
   padding: 8px 16px;
@@ -70,7 +70,7 @@ main h2 {
   background: #e74c3c;
 }
 
-/* Clear Cache Button */
+
 .clear-btn {
   padding: 8px 16px;
   background: #222;
@@ -91,14 +91,14 @@ main h2 {
   cursor: not-allowed;
 }
 
-/* Product Grid */
+
 .product-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 20px;
 }
 
-/* Product Card */
+
 .product-card {
   background: white;
   border-radius: 8px;
@@ -143,7 +143,7 @@ main h2 {
   display: inline-block;
 }
 
-/* Back Button */
+
 .back-btn {
   display: inline-block;
   margin-bottom: 20px;
@@ -156,7 +156,7 @@ main h2 {
   text-decoration: underline;
 }
 
-/* Product Detail */
+
 .product-detail {
   background: white;
   border-radius: 8px;
@@ -209,7 +209,7 @@ main h2 {
   font-weight: bold;
 }
 
-/* Footer */
+
 footer {
   text-align: center;
   padding: 16px;
