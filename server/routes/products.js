@@ -191,4 +191,47 @@ router.delete("/:id/cache", async (req, res) => {
   }
 });
 
+// POST /api/products — add new product
+router.post("/", async (req, res) => {
+  try {
+    const { name, price, description, category, imageUrl, inStock } = req.body;
+    const product = new Product({ name, price, description, category, imageUrl, inStock });
+    await product.save();
+
+    // Invalidate the product list cache everywhere
+    await redisClient.del("prod");
+    shmDel("prod");
+    await redisClient.publish(COHERENCY_CHANNEL, JSON.stringify({ action: "invalidate", key: "prod" }));
+    await CacheMeta.findOneAndUpdate({ cacheKey: "prod" }, { $set: { isActive: false } });
+
+    res.status(201).json({ message: "Product added", product });
+  } catch (err) {
+    res.status(500).json({ message: "Error adding product" });
+  }
+});
+
+// DELETE /api/products/:id — delete a product
+router.delete("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await Product.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ message: "Product not found" });
+
+    const cacheKey = `product:${id}`;
+    await redisClient.del("prod");
+    await redisClient.del(cacheKey);
+    shmDel("prod");
+    shmDel(cacheKey);
+    await redisClient.publish(COHERENCY_CHANNEL, JSON.stringify({ action: "invalidate-all" }));
+    await CacheMeta.updateMany(
+      { cacheKey: { $in: ["prod", cacheKey] } },
+      { $set: { isActive: false } }
+    );
+
+    res.json({ message: "Product deleted" });
+  } catch (err) {
+    res.status(500).json({ message: "Error deleting product" });
+  }
+});
+
 module.exports = router;
