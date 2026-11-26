@@ -5,7 +5,11 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "nodemon server/index.js"
+    "dev": "nodemon server/index.js",
+    "test": "node --test test/*.test.js",
+    "test:live": "node scripts/smoke-test.js",
+    "warm-cache": "node scripts/warm-cache.js",
+    "create-admin": "node scripts/create-admin.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -14,5 +18,8 @@
     "mongoose": "^8.0.0",
     "redis": "^4.6.0",
     "nodemon": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

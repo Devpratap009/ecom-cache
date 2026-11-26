@@ -1,0 +1,12 @@
+QuickMart automated tests (local edit-session verification)
+
+- JavaScript syntax checks: passed for server, scripts, frontend and tests.
+- npm test: 20 tests passed, 0 failed.
+- Authentication crypto: salted password hash/verify, JWT signature/expiry and role middleware tests passed.
+- Cache unit coverage: L1, Redis, TTL, invalidation, concurrency, background refresh, Redis outage and corrupt payload tests passed.
+- Frontend fixes: administrator sign-in no longer redirects an already-authenticated customer before they can switch roles; catalog and cache diagnostics now use separate pages.
+- Image fixes: normalize legacy relative image paths, accept supported local image paths and HTTP(S) URLs, upgrade bare image hostnames to HTTPS, support local-path editing, and show category-specific fallbacks when an image is missing or broken.
+- Image URL unit coverage: 6 additional tests passed, including unsafe protocol/path rejection.
+- Admin provisioning: update uses an explicit database update, with an opt-in flag for promoting an existing customer account.
+
+Live MongoDB/Redis/API integration and browser rendering were not run in this editing environment. Run `npm run test:live` on the user's machine after configuring .env, creating the admin account and starting the services.

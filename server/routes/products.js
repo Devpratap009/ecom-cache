@@ -1,237 +1,74 @@
-const express = require("express");
-const router = express.Router();
-const Product = require("../models/Product");
-const CacheMeta = require("../models/CacheMeta");
-const { redisClient } = require("../redis");
-const { shmGet, shmSet, shmDel, shmDelAll } = require("../shm");
+const express = require('express');
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const { requireAdmin } = require('../middleware/auth');
+const { normalizeImageUrl, uploadedImagePattern } = require('../image-url');
 
-const STRATEGIES = {
-  aggressive: { redisTTL: 1800, shmTTL: 300 },
-  balanced: { redisTTL: 600, shmTTL: 60 },
-  relaxed: { redisTTL: 120, shmTTL: 30 },
+const uploadDir = path.join(__dirname, '../../uploads/products');
+
+module.exports = function createRoutes({ Product, CacheMeta, cache }) {
+  const router = express.Router();
+  const validId = id => /^[a-f\d]{24}$/i.test(id);
+  const route = fn => async (req, res, next) => { try { await fn(req, res); } catch (err) { next(err); } };
+  const fields = body => {
+    if (!body || typeof body !== 'object') throw Object.assign(Error('Invalid product'), { status: 400 });
+    const { name, price, description, category, imageUrl, inStock } = body;
+    if (typeof name !== 'string' || !name.trim() || typeof description !== 'string' || !description.trim() || typeof price !== 'number' || !Number.isFinite(price) || price < 0 || (inStock !== undefined && typeof inStock !== 'boolean') || (category !== undefined && typeof category !== 'string') || (imageUrl !== undefined && typeof imageUrl !== 'string')) throw Object.assign(Error('Invalid product fields'), { status: 400 });
+    const normalizedImageUrl = normalizeImageUrl(imageUrl || '');
+    return { name: name.trim(), price, description: description.trim(), category: category?.trim() || 'general', imageUrl: normalizedImageUrl, inStock: inStock ?? true };
+  };
+  async function removeUploadedImage(imageUrl) {
+    if (!uploadedImagePattern.test(imageUrl || '')) return;
+    try { await fs.unlink(path.join(uploadDir, path.basename(imageUrl))); } catch (err) { if (err.code !== 'ENOENT') console.warn('Image cleanup:', err.message); }
+  }
+  async function markInactive(key) { try { await CacheMeta.updateMany(key ? { cacheKey: key } : {}, { $set: { isActive: false } }); } catch (err) { console.warn('Cache metadata:', err.message); } }
+  async function mutationReady(res) { try { await cache.beforeMutation(); return true; } catch { res.status(503).json({ message: 'Redis unavailable; changes paused to protect cache consistency.' }); return false; } }
+  async function finish(res, status, data) {
+    const cacheInvalidated = await cache.afterMutation();
+    await markInactive();
+    res.status(status).json({ ...data, cacheInvalidated, ...(cacheInvalidated ? {} : { warning: 'Product change saved, but Redis invalidation failed. This server will retry before using cache.' }) });
+  }
+
+  router.get('/cache/status', (req, res) => res.json(cache.status()));
+  router.delete('/cache/all', requireAdmin, route(async (req, res) => {
+    try { await cache.invalidate(); } catch { return res.status(503).json({ message: 'Redis unavailable; cache was not cleared.' }); }
+    await markInactive(); res.json({ message: 'All product caches cleared' });
+  }));
+  router.param('id', (req, res, next, id) => { if (!validId(id)) return res.status(400).json({ message: 'Invalid product ID' }); req.params.id = id.toLowerCase(); next(); });
+  router.delete('/:id/cache', requireAdmin, route(async (req, res) => {
+    const key = `product:${req.params.id}`;
+    try { await cache.invalidate(key); } catch { return res.status(503).json({ message: 'Redis unavailable; cache was not cleared.' }); }
+    await markInactive(key); res.json({ message: 'Product cache cleared' });
+  }));
+  router.get('/', route(async (req, res) => {
+    const { data, ...info } = await cache.read('prod', () => Product.find({}).lean());
+    res.json({ products: data, ...info });
+  }));
+  router.get('/:id', route(async (req, res) => {
+    const id = req.params.id;
+    const { data, ...info } = await cache.read(`product:${id}`, () => Product.findById(id).lean());
+    if (!data) return res.status(404).json({ message: 'Product not found' });
+    res.json({ product: data, ...info });
+  }));
+  router.post('/', requireAdmin, route(async (req, res) => {
+    const data = fields(req.body); if (!await mutationReady(res)) return;
+    const product = await Product.create(data);
+    await finish(res, 201, { message: 'Product added', product });
+  }));
+  router.put('/:id', requireAdmin, route(async (req, res) => {
+    const data = fields(req.body); if (!await mutationReady(res)) return;
+    const previous = await Product.findById(req.params.id).select('imageUrl').lean();
+    if (!previous) return res.status(404).json({ message: 'Product not found' });
+    const product = await Product.findByIdAndUpdate(req.params.id, data, { new: true, runValidators: true });
+    if (previous.imageUrl && previous.imageUrl !== data.imageUrl) await removeUploadedImage(previous.imageUrl);
+    await finish(res, 200, { message: 'Product updated', product });
+  }));
+  router.delete('/:id', requireAdmin, route(async (req, res) => {
+    if (!await mutationReady(res)) return;
+    const product = await Product.findByIdAndDelete(req.params.id);
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+    await removeUploadedImage(product.imageUrl);
+    await finish(res, 200, { message: 'Product deleted' });
+  }));
+  return router;
 };
-const strategy = STRATEGIES[process.env.CACHE_STRATEGY] || STRATEGIES.balanced;
-const COHERENCY_CHANNEL = "cache:invalidation";
-
-// update or create CacheMeta doc for a given cache key
-async function trackCacheMeta(cacheKey, { hit }) {
-  try {
-    const update = hit
-      ? { $inc: { hitCount: 1 }, $set: { lastAccessed: new Date() } }
-      : { $inc: { missCount: 1 }, $set: { lastAccessed: new Date() } };
-    await CacheMeta.findOneAndUpdate(
-      { cacheKey },
-      {
-        ...update,
-        $setOnInsert: {
-          ttl: strategy.redisTTL,
-          invalidationRules: ["on-update"],
-          isActive: true,
-          dataType: cacheKey.startsWith("product:")
-            ? "product"
-            : "product-list",
-        },
-      },
-      { upsert: true },
-    );
-  } catch {}
-}
-
-// async background refresh — fire and forget, doesn't block response
-async function refreshInBackground(cacheKey, fetchFn) {
-  try {
-    const fresh = await fetchFn();
-    if (!fresh) return;
-    const serialized = JSON.stringify(fresh);
-    await redisClient.setEx(cacheKey, strategy.redisTTL, serialized);
-    shmSet(cacheKey, serialized, strategy.shmTTL);
-    await CacheMeta.findOneAndUpdate(
-      { cacheKey },
-      { $set: { lastRefreshed: new Date() } },
-    );
-  } catch {}
-}
-
-// check if Redis TTL is under 20% — if so, trigger background refresh
-async function maybeRefreshAsync(cacheKey, fetchFn) {
-  try {
-    const ttl = await redisClient.ttl(cacheKey);
-    if (ttl > 0 && ttl < strategy.redisTTL * 0.2) {
-      setImmediate(() => refreshInBackground(cacheKey, fetchFn));
-    }
-  } catch {}
-}
-
-// GET all products — shm → Redis → MongoDB
-router.get("/", async (req, res) => {
-  const cacheKey = "prod";
-  try {
-    // L1: Unix shared memory
-    const shmData = shmGet(cacheKey);
-    if (shmData) {
-      await trackCacheMeta(cacheKey, { hit: true });
-      maybeRefreshAsync(cacheKey, () => Product.find({}).lean());
-      return res
-        .status(200)
-        .json({ products: JSON.parse(shmData), isCached: true, source: "shm" });
-    }
-
-    // L2: Redis
-    const redisData = await redisClient.get(cacheKey);
-    if (redisData) {
-      shmSet(cacheKey, redisData, strategy.shmTTL);
-      await trackCacheMeta(cacheKey, { hit: true });
-      maybeRefreshAsync(cacheKey, () => Product.find({}).lean());
-      return res
-        .status(200)
-        .json({
-          products: JSON.parse(redisData),
-          isCached: true,
-          source: "redis",
-        });
-    }
-
-    // L3: MongoDB
-    const data = await Product.find({}).lean();
-    const serialized = JSON.stringify(data);
-    await redisClient.setEx(cacheKey, strategy.redisTTL, serialized);
-    shmSet(cacheKey, serialized, strategy.shmTTL);
-    await trackCacheMeta(cacheKey, { hit: false });
-    return res
-      .status(200)
-      .json({ products: data, isCached: false, source: "db" });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Server error" });
-  }
-});
-
-// GET single product — shm → Redis → MongoDB
-router.get("/:id", async (req, res) => {
-  const { id } = req.params;
-  const cacheKey = `product:${id}`;
-  try {
-    // L1: Unix shared memory
-    const shmData = shmGet(cacheKey);
-    if (shmData) {
-      await trackCacheMeta(cacheKey, { hit: true });
-      maybeRefreshAsync(cacheKey, () => Product.findById(id).lean());
-      return res
-        .status(200)
-        .json({ product: JSON.parse(shmData), isCached: true, source: "shm" });
-    }
-
-    // L2: Redis
-    const redisData = await redisClient.get(cacheKey);
-    if (redisData) {
-      shmSet(cacheKey, redisData, strategy.shmTTL);
-      await trackCacheMeta(cacheKey, { hit: true });
-      maybeRefreshAsync(cacheKey, () => Product.findById(id).lean());
-      return res
-        .status(200)
-        .json({
-          product: JSON.parse(redisData),
-          isCached: true,
-          source: "redis",
-        });
-    }
-
-    // L3: MongoDB
-    const data = await Product.findById(id).lean();
-    if (!data) return res.status(404).json({ message: "Product not found" });
-
-    const serialized = JSON.stringify(data);
-    await redisClient.setEx(cacheKey, strategy.redisTTL, serialized);
-    shmSet(cacheKey, serialized, strategy.shmTTL);
-    await trackCacheMeta(cacheKey, { hit: false });
-    return res
-      .status(200)
-      .json({ product: data, isCached: false, source: "db" });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Server error" });
-  }
-});
-
-// DELETE /cache/all — invalidate all caches + publish coherency event
-router.delete("/cache/all", async (req, res) => {
-  try {
-    await redisClient.del("prod");
-    shmDelAll();
-    // coherency: notify other processes/instances
-    await redisClient.publish(
-      COHERENCY_CHANNEL,
-      JSON.stringify({ action: "invalidate-all" }),
-    );
-    await CacheMeta.updateMany({}, { $set: { isActive: false } });
-    res.json({ message: "All product cache cleared" });
-  } catch (err) {
-    res.status(500).json({ message: "Error clearing cache" });
-  }
-});
-
-// DELETE /:id/cache — invalidate single product cache + publish coherency event
-router.delete("/:id/cache", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const cacheKey = `product:${id}`;
-    await redisClient.del(cacheKey);
-    shmDel(cacheKey);
-    await redisClient.publish(
-      COHERENCY_CHANNEL,
-      JSON.stringify({ action: "invalidate", key: cacheKey }),
-    );
-    await CacheMeta.findOneAndUpdate(
-      { cacheKey },
-      { $set: { isActive: false } },
-    );
-    res.json({ message: "Product cache cleared" });
-  } catch (err) {
-    res.status(500).json({ message: "Error clearing cache" });
-  }
-});
-
-// POST /api/products — add new product
-router.post("/", async (req, res) => {
-  try {
-    const { name, price, description, category, imageUrl, inStock } = req.body;
-    const product = new Product({ name, price, description, category, imageUrl, inStock });
-    await product.save();
-
-    // Invalidate the product list cache everywhere
-    await redisClient.del("prod");
-    shmDel("prod");
-    await redisClient.publish(COHERENCY_CHANNEL, JSON.stringify({ action: "invalidate", key: "prod" }));
-    await CacheMeta.findOneAndUpdate({ cacheKey: "prod" }, { $set: { isActive: false } });
-
-    res.status(201).json({ message: "Product added", product });
-  } catch (err) {
-    res.status(500).json({ message: "Error adding product" });
-  }
-});
-
-// DELETE /api/products/:id — delete a product
-router.delete("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const deleted = await Product.findByIdAndDelete(id);
-    if (!deleted) return res.status(404).json({ message: "Product not found" });
-
-    const cacheKey = `product:${id}`;
-    await redisClient.del("prod");
-    await redisClient.del(cacheKey);
-    shmDel("prod");
-    shmDel(cacheKey);
-    await redisClient.publish(COHERENCY_CHANNEL, JSON.stringify({ action: "invalidate-all" }));
-    await CacheMeta.updateMany(
-      { cacheKey: { $in: ["prod", cacheKey] } },
-      { $set: { isActive: false } }
-    );
-
-    res.json({ message: "Product deleted" });
-  } catch (err) {
-    res.status(500).json({ message: "Error deleting product" });
-  }
-});
-
-module.exports = router;

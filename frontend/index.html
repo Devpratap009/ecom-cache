@@ -1,79 +1,30 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>QuickMart</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#183a30"><title>QuickMart — Shop & Inventory</title>
+  <link rel="stylesheet" href="style.css"><script defer src="app.js"></script>
 </head>
 <body>
-
-  <header>
-    <h1>QuickMart</h1>
-    <nav>Home | Products | Contact</nav>
-  </header>
-
-  <main>
-    <div class="cache-bar">
-      <div class="cache-banner" id="cacheBanner">Checking cache...</div>
-      <button class="clear-btn" id="clearBtn">Clear Cache</button>
-    </div>
-
-    <div class="products-header">
-      <h2>Products</h2>
-      <button class="add-btn" onclick="openModal()">
-        <span class="plus">+</span> Add Product
-      </button>
-    </div>
-
-    <div class="product-grid" id="productGrid">
-      <p>Loading...</p>
-    </div>
-  </main>
-
-  <div class="modal-overlay" id="addModal">
-    <div class="modal-box">
-      <h3>Add New Product</h3>
-      <form id="addForm">
-        <div class="form-group">
-          <label for="name">Name</label>
-          <input id="name" name="name" type="text" placeholder="e.g. Wireless Headphones" required />
-        </div>
-        <div class="form-group">
-          <label for="price">Price (Rs.)</label>
-          <input id="price" name="price" type="number" min="0" placeholder="e.g. 1999" required />
-        </div>
-        <div class="form-group">
-          <label for="description">Description</label>
-          <input id="description" name="description" type="text" placeholder="Short product description" required />
-        </div>
-        <div class="form-group">
-          <label for="category">Category</label>
-          <input id="category" name="category" type="text" placeholder="e.g. Electronics" />
-        </div>
-        <div class="form-group">
-          <label for="imageUrl">Image URL</label>
-          <input id="imageUrl" name="imageUrl" type="text" placeholder="https://..." />
-        </div>
-        <div class="form-group">
-          <label for="inStock">Availability</label>
-          <select id="inStock" name="inStock">
-            <option value="true">In Stock</option>
-            <option value="false">Out of Stock</option>
-          </select>
-        </div>
-        <div class="modal-actions">
-          <button type="submit" class="btn-submit">Add Product</button>
-          <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <footer>
-    <p>&copy; 2025 QuickMart. All rights reserved.</p>
-  </footer>
-
-  <script src="app.js"></script>
-</body>
-</html>
+<header class="topbar"><div class="shell nav">
+  <a class="brand" href="/"><span class="brandmark">Q</span> QuickMart<span class="brand-dot">.</span></a>
+  <nav><a class="nav-active" href="/">Catalog</a><a href="/cache.html">Cache monitor</a></nav>
+  <div class="account-area"><a class="nav-auth" id="signInLink" href="/auth.html">Sign in</a><span class="account-label" id="accountLabel" hidden></span><button class="secondary signout-btn" id="logoutBtn" hidden>Sign out</button></div>
+</div></header>
+<main class="shell">
+  <section class="hero"><div><p class="eyebrow">QUICKMART / INVENTORY STUDIO</p><h1>Good things.<br><em>Delivered faster.</em></h1><p>Explore the collection, discover products and see multi-level caching in action — from the first request to the fastest repeat access.</p><button class="primary" id="addBtn" hidden>＋ Add product</button></div><div class="hero-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="stack"><span>01 / LOCAL</span><strong>L1</strong><small>Memory</small></div><div class="stack stack-two"><span>02 / DISTRIBUTED</span><strong>L2</strong><small>Redis</small></div><div class="stack stack-three"><span>03 / PERSISTENCE</span><strong>L3</strong><small>MongoDB</small></div></div></section>
+  <section class="catalog"><div class="section-title"><div><p class="eyebrow">INVENTORY / COLLECTION</p><h2>Explore products <span class="count" id="productCount">0</span></h2></div><div class="filters"><label class="search"><span>⌕</span><input id="search" type="search" placeholder="Search products" aria-label="Search products"></label><select id="categoryFilter" aria-label="Filter by category"><option value="">All categories</option></select></div></div><div class="product-grid" id="productGrid" aria-live="polite"><p class="empty">Loading catalog…</p></div></section>
+</main>
+<dialog id="addModal"><form id="addForm"><div class="section-title"><div><p class="eyebrow">INVENTORY / EDITOR</p><h2 id="formTitle">Add product</h2></div><button type="button" class="icon-btn" id="closeModal" aria-label="Close">×</button></div>
+  <label>Product name<input name="name" required maxlength="200" placeholder="Wireless headphones"></label>
+  <div class="form-row"><label>Price (₹)<input name="price" type="number" min="0" step="0.01" required placeholder="1999"></label><label>Category<input name="category" placeholder="Electronics"></label></div>
+  <label>Description<textarea name="description" required rows="3" placeholder="Describe this product"></textarea></label>
+  <label>Upload product image<input name="imageFile" id="imageFile" type="file" accept="image/jpeg,image/png,image/webp,image/gif"></label>
+  <div class="image-preview" id="imagePreview"><span>Image preview</span></div>
+  <label>Or use an image URL<input name="imageUrl" id="imageUrl" type="text" inputmode="url" placeholder="https://example.com/product.jpg or /uploads/products/photo.jpg"></label>
+  <label>Availability<select name="inStock"><option value="true">In stock</option><option value="false">Out of stock</option></select></label>
+  <p class="form-hint">JPG, PNG, WEBP or GIF · maximum 5 MB. Uploaded images are stored in this project.</p>
+  <p id="formError" class="error" role="alert"></p><div class="actions modal-actions"><button type="button" class="secondary" id="cancelModal">Cancel</button><button class="primary" type="submit" id="saveBtn">Save product</button></div>
+</form></dialog>
+<footer class="shell footer"><span>QuickMart<span class="brand-dot">.</span> / Shop & inventory</span><span>Built for speed · L1 / Redis / MongoDB</span></footer><div id="toast" class="toast" role="status" hidden></div>
+</body></html>

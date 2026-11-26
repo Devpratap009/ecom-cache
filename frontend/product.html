@@ -1,33 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Product | QuickMart</title>
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-
-  <header>
-    <h1>QuickMart</h1>
-    <nav>Home | Products | Contact</nav>
-  </header>
-
-  <main>
-    <div class="cache-bar">
-      <div class="cache-banner" id="cacheBanner">Checking cache...</div>
-      <button class="clear-btn" id="clearBtn">Clear Cache</button>
-    </div>
-    <a href="/" class="back-btn">← Back</a>
-    <div class="product-detail" id="productDetail">
-      <p>Loading...</p>
-    </div>
-  </main>
-
-  <footer>
-    <p>© 2025 QuickMart. All rights reserved.</p>
-  </footer>
-
-  <script src="app.js"></script>
-</body>
-</html>
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>QuickMart — Product</title><link rel="stylesheet" href="style.css"><script defer src="app.js"></script></head>
+<body><header class="topbar"><div class="shell nav"><a class="brand" href="/"><span class="brandmark">Q</span> QuickMart<span class="brand-dot">.</span></a><nav><a href="/">Catalog</a><a href="/cache.html">Cache monitor</a></nav><div class="account-area"><a class="nav-auth" id="signInLink" href="/auth.html">Sign in</a><span class="account-label" id="accountLabel" hidden></span><button class="secondary signout-btn" id="logoutBtn" hidden>Sign out</button></div></div></header>
+<main class="shell detail-main"><a class="back" href="/">← Back to catalog</a><section class="monitor"><div class="section-title"><div><p class="eyebrow">PERFORMANCE / PRODUCT</p><h2>Request monitor</h2></div><div class="actions"><button class="secondary" id="reloadBtn">↻ Fetch again</button><button class="secondary danger" id="clearBtn" hidden>Clear product cache</button></div></div><div id="cacheBanner" class="cache-status" role="status">Waiting for first request…</div><p class="monitor-note" id="healthNote">Loading cache configuration…</p></section><section class="detail" id="productDetail" aria-live="polite"><p class="empty">Loading product…</p></section></main>
+<footer class="shell footer"><span>QuickMart<span class="brand-dot">.</span> / Shop & inventory</span><span>Built for speed · L1 / Redis / MongoDB</span></footer><div id="toast" class="toast" role="status" hidden></div></body></html>

@@ -1,3 +1,7 @@
 node_modules/
 .env
-scripts/warm-cache.log
+.env.*
+!.env.example
+uploads/
+logs/
+.DS_Store

@@ -1,47 +1,40 @@
-require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const path = require("path");
-const connectDB = require("./db");
-const { connectRedis, redisClient } = require("./redis");
-const productRoutes = require("./routes/products");
-const { shmDel, shmDelAll } = require("./shm");
-
+require('dotenv').config();
+const express = require('express');
+const path = require('node:path');
+const mongoose = require('mongoose');
+const connectDB = require('./db');
+const { connectRedis, redisClient } = require('./redis');
+const { createL1 } = require('./shm');
+const { createCache } = require('./cache');
+const CacheMeta = require('./models/CacheMeta');
+const Product = require('./models/Product');
+const createRoutes = require('./routes/products');
+const createAuthRoutes = require('./routes/auth');
+const createUploadRoutes = require('./routes/uploads');
+const l1 = createL1();
+const cache = createCache({ redis: redisClient, l1, strategyName: process.env.CACHE_STRATEGY, prefix: process.env.CACHE_PREFIX || 'quickmart:v2', track: async (cacheKey, info) => {
+  const $set = { lastAccessed: new Date(), ttl: cache.status().redisTTL };
+  const $inc = {};
+  if (info.hit !== undefined) $inc[info.hit ? 'hitCount' : 'missCount'] = 1;
+  if (info.refreshed) Object.assign($set, { lastRefreshed: new Date(), isActive: true });
+  if (info.hit) $set.isActive = true;
+  await CacheMeta.updateOne({ cacheKey }, { $set, ...(Object.keys($inc).length ? { $inc } : {}), $setOnInsert: { dataType: cacheKey === 'prod' ? 'product-list' : 'product', invalidationRules: ['on-update'] } }, { upsert: true, setDefaultsOnInsert: false });
+}});
 const app = express();
-
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, "../frontend")));
-
-app.use("/api/products", productRoutes);
-
-app.get("/api/health", (req, res) => {
-  res.json({ status: "Server is running" });
-});
-
-const startServer = async () => {
-  await connectDB();
-  await connectRedis();
-
-  const subscriber = redisClient.duplicate();
-  await subscriber.connect();
-  await subscriber.subscribe("cache:invalidation", (message) => {
-    try {
-      const { action, key } = JSON.parse(message);
-      if (action === "invalidate-all") {
-        shmDelAll();
-        console.log("[coherency] Cleared all shm cache entries");
-      } else if (action === "invalidate" && key) {
-        shmDel(key);
-        console.log(`[coherency] Cleared shm entry: ${key}`);
-      }
-    } catch {}
-  });
-
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
-};
-
-startServer();
+app.use(express.json({ limit: '7mb' }));
+app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
+app.get('/api/health', (req, res) => res.status(mongoose.connection.readyState === 1 ? 200 : 503).json({ status: mongoose.connection.readyState === 1 ? 'ok' : 'unavailable', mongoReady: mongoose.connection.readyState === 1, ...cache.status() }));
+app.use('/api/auth', createAuthRoutes());
+app.use('/api/uploads', createUploadRoutes());
+app.use('/api/products', createRoutes({ Product, CacheMeta, cache }));
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'), { maxAge: '7d', immutable: true }));
+app.use(express.static(path.join(__dirname, '../frontend')));
+app.use((err, req, res, next) => { console.error(err.message); res.status(err.status || 500).json({ message: err.status === 400 ? (err.type === 'entity.parse.failed' ? 'Invalid JSON body' : err.message) : err.status === 413 ? 'Request too large. Product images must be 5 MB or smaller.' : err.status === 503 ? err.message : 'Server error' }); });
+async function start() {
+  await connectDB(); connectRedis();
+  setInterval(() => l1.sweep(), 60000).unref();
+  const port = process.env.PORT || 5000;
+  app.listen(port, () => console.log(`QuickMart running at http://localhost:${port}`));
+}
+if (require.main === module) start().catch(err => { console.error(err.message); process.exit(1); });
+module.exports = app;

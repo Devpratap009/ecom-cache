@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#183a30">
+  <title>Cache monitor — QuickMart</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="cache.js"></script>
+</head>
+<body>
+<header class="topbar"><div class="shell nav">
+  <a class="brand" href="/"><span class="brandmark">Q</span> QuickMart<span class="brand-dot">.</span></a>
+  <nav><a href="/">Catalog</a><a class="nav-active" href="/cache.html">Cache monitor</a></nav>
+  <div class="account-area"><a class="nav-auth" id="signInLink" href="/auth.html">Sign in</a><span class="account-label" id="accountLabel" hidden></span><button class="secondary signout-btn" id="logoutBtn" hidden>Sign out</button></div>
+</div></header>
+<main class="shell detail-main">
+  <section class="hero cache-hero">
+    <div>
+      <p class="eyebrow">QUICKMART / PERFORMANCE STUDIO</p>
+      <h1>See what makes<br><em>QuickMart fast.</em></h1>
+      <p>Inspect the catalog request path, compare memory and Redis hits, and check the health of each caching layer.</p>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+      <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+      <div class="stack"><span>01 / LOCAL</span><strong>L1</strong><small>Memory</small></div>
+      <div class="stack stack-two"><span>02 / DISTRIBUTED</span><strong>L2</strong><small>Redis</small></div>
+      <div class="stack stack-three"><span>03 / PERSISTENCE</span><strong>L3</strong><small>MongoDB</small></div>
+    </div>
+  </section>
+
+  <section class="monitor" aria-label="Cache performance monitor">
+    <div class="section-title">
+      <div><p class="eyebrow">CACHE / LIVE DIAGNOSTICS</p><h2>Cache monitor</h2></div>
+      <div class="actions"><button class="secondary" id="probeBtn">↻ Probe catalog cache</button><button class="secondary danger" id="clearBtn" hidden>Clear all cache</button></div>
+    </div>
+    <div class="cache-status" id="cacheBanner" role="status">Waiting for a catalog cache probe…</div>
+    <div class="metrics" id="metrics">
+      <div><span>Last request</span><strong id="latency">—</strong><small>Browser round trip</small></div>
+      <div><span>L1 memory hits</span><strong id="l1Hits">—</strong><small id="l1Info">Local cache</small></div>
+      <div><span>Redis hits</span><strong id="redisHits">—</strong><small id="redisInfo">Distributed cache</small></div>
+      <div><span>Database reads</span><strong id="dbHits">—</strong><small id="strategyInfo">Session counters</small></div>
+    </div>
+    <p class="monitor-note" id="healthNote">Loading cache configuration…</p>
+  </section>
+
+  <section class="monitor cache-layers">
+    <div class="section-title"><div><p class="eyebrow">REQUEST PATH / THREE LAYERS</p><h2>How a catalog request is served</h2></div></div>
+    <div class="cache-layer-grid">
+      <article class="cache-layer"><span class="layer-index">01</span><p class="eyebrow">L1 / LOCAL</p><h3>Memory cache</h3><p>Fastest lookup. The app checks its local in-memory or shared-memory entry first.</p><span class="layer-state" id="l1State">Waiting for health check</span></article>
+      <article class="cache-layer"><span class="layer-index">02</span><p class="eyebrow">L2 / DISTRIBUTED</p><h3>Redis cache</h3><p>Shared cache for requests that miss the local layer, with a time-to-live.</p><span class="layer-state" id="redisState">Waiting for health check</span></article>
+      <article class="cache-layer"><span class="layer-index">03</span><p class="eyebrow">L3 / PERSISTENCE</p><h3>MongoDB</h3><p>Source of truth when the cached catalog data is missing or unavailable.</p><span class="layer-state" id="mongoState">Waiting for health check</span></article>
+    </div>
+  </section>
+
+  <section class="monitor cache-notes">
+    <p class="eyebrow">READING THE RESULTS</p>
+    <h2>Hit or miss?</h2>
+    <p><strong>Cache hit</strong> means the catalog data came from L1 memory or L2 Redis. A <strong>cache miss</strong> means QuickMart fetched fresh data from MongoDB and then populated the cache layers.</p>
+    <p class="monitor-note">Counters are process-wide and reset when the server restarts. Use “Probe catalog cache” more than once to see the cache warm up.</p>
+  </section>
+</main>
+<footer class="shell footer"><span>QuickMart<span class="brand-dot">.</span> / Performance studio</span><span>L1 memory · L2 Redis · L3 MongoDB</span></footer>
+<div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>
